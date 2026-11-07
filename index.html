@@ -32,6 +32,7 @@
     --gold: #e2b563;
     --moss: #5f7d68;
     --bar-h: 3.5rem;
+    --edge: clamp(.5rem, 2vw, 1.5rem);   /* gap from the viewport/footer edge to buttons and plaques */
     --fade: 1.6s;
     --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif;
   }
@@ -135,11 +136,12 @@
   .ctl:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
   .ctl:disabled { opacity: .28; cursor: default; background: rgba(24, 26, 26, .5); border-color: rgba(255, 255, 255, .16); }
   .ctl svg { width: 1.5rem; height: 1.5rem; display: block; fill: currentColor; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
+  .ctl svg.caret { fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
   #prev, #next { top: 50%; margin-top: -1.375rem; }   /* exact vertical middle */
-  #prev { left: clamp(.5rem, 2vw, 1.5rem); }
-  #next { right: clamp(.5rem, 2vw, 1.5rem); }
+  #prev { left: var(--edge); }
+  #next { right: var(--edge); }
   #pause {
-    left: clamp(.5rem, 2vw, 1.5rem);
+    left: var(--edge);
     top: calc(var(--bar-h) + env(safe-area-inset-top) + .75rem);
     width: 2.4rem; height: 2.4rem;
   }
@@ -155,9 +157,9 @@
   /* ---------- B. museum plaques ---------- */
   #plates {
     position: fixed; z-index: 5;
-    left: clamp(1rem, 4vw, 3rem);
-    bottom: calc(2.5rem + env(safe-area-inset-bottom) + clamp(1rem, 4vh, 2.5rem));
-    width: min(26rem, calc(100vw - 2rem));
+    left: var(--edge);
+    bottom: calc(2.5rem + env(safe-area-inset-bottom) + var(--edge));   /* same gap, measured from the footer bar */
+    width: min(26rem, calc(100vw - 2 * var(--edge)));
     display: flex; flex-direction: column; gap: .7rem;
     pointer-events: none;
   }
@@ -222,7 +224,7 @@
   #photo-plate p { margin: 0; font-size: .88rem; line-height: 1.4; font-style: italic; }
 
   @media (max-width: 600px) {
-    #plates { left: 1rem; right: 1rem; width: auto; }
+    #plates { left: var(--edge); right: var(--edge); width: auto; }
     #fact-plate { padding: .9rem 1.25rem 1.05rem; }
     #fact-plate h2 { font-size: 1.2rem; }
     #fact-plate p { font-size: .96rem; }
@@ -239,10 +241,10 @@
 <header><h1><a href="./" aria-label="Moreelsepark.nl – naar de startpagina">Moreelse<span>park</span>.nl</a></h1></header>
 
 <button id="prev" class="ctl" type="button" aria-label="Vorige foto" title="Vorige foto (←)" disabled>
-  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.2 L7.7 12 L14.7 17.8 Z"/></svg>
+  <svg class="caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5 L8 12 L14.5 18.5"/></svg>
 </button>
 <button id="next" class="ctl" type="button" aria-label="Volgende foto" title="Volgende foto (→)">
-  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.3 6.2 L16.3 12 L9.3 17.8 Z"/></svg>
+  <svg class="caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5 L16 12 L9.5 18.5"/></svg>
 </button>
 <button id="pause" class="ctl" type="button" aria-pressed="false" aria-label="Pauzeer diavoorstelling" title="Pauzeer">
   <svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="6" width="3.4" height="12" rx="1"/><rect x="13.6" y="6" width="3.4" height="12" rx="1"/></svg>
@@ -268,7 +270,7 @@
   </div>
 </main>
 
-<footer><small>© <span id="year">2026</span> Moreelsepark.nl <span class="sep">|</span> <a href="https://github.com/jeroenheijmans/moreelsepark.nl" target="_blank" rel="noopener">Source on GitHub</a> <span class="sep">|</span> V1.0.1</small></footer>
+<footer><small>© <span id="year">2026</span> Moreelsepark.nl <span class="sep">|</span> <a href="https://github.com/jeroenheijmans/moreelsepark.nl" target="_blank" rel="noopener">Source on GitHub</a> <span class="sep">|</span> V1.0.2</small></footer>
 
 <script>
 (() => {
@@ -704,17 +706,18 @@
   const trail = [];
   let cursor = -1;
 
-  // slide timer that can be paused (painting and drift keep going so a paused photo still finishes its painting)
-  let paused = false, tBase = 0, tSince = 0;
-  const elapsed = () => tBase + (paused ? 0 : performance.now() - tSince);
+  // Pause only holds back the advance to the next photo. The clock, the painting and the drift keep
+  // running, so a paused photo always ends up fully painted, and pressing play moves on right away
+  // if the slide time has already passed.
+  let paused = false, tSince = 0;
   function waitSlide() {
     return new Promise(res => {
       skip = res;
       const poll = () => {
         if (skip !== res) return;                   // resolved elsewhere (skip button, history, ...)
-        const left = SLIDE_MS - elapsed();
+        const left = SLIDE_MS - (performance.now() - tSince);
         if (!paused && left <= 0) { res(); return; }
-        setTimeout(poll, paused ? 250 : Math.min(250, Math.max(20, left)));
+        setTimeout(poll, paused || left <= 0 ? 150 : Math.min(250, Math.max(20, left)));
       };
       poll();
     });
@@ -722,13 +725,9 @@
 
   const btn = { prev: $('prev'), next: $('next'), pause: $('pause') };
   function setPaused(p) {
-    if (p === paused) return;
-    if (p) tBase = elapsed();
-    else { tBase = Math.min(tBase, Math.max(0, SLIDE_MS - 3000)); tSince = performance.now(); }   // resume with >= 3s left
     paused = p;
     btn.pause.setAttribute('aria-pressed', String(p));
-    const label = p ? 'Afspelen' : 'Pauzeer';
-    btn.pause.title = label;
+    btn.pause.title = p ? 'Afspelen' : 'Pauzeer';
     btn.pause.setAttribute('aria-label', p ? 'Hervat diavoorstelling' : 'Pauzeer diavoorstelling');
   }
   const goNext = () => { if (skip) skip(); };
@@ -782,7 +781,7 @@
       setUrl(slide.id, mode);
       present(slide);
       btn.prev.disabled = cursor <= 0;
-      tBase = 0; tSince = performance.now();
+      tSince = performance.now();
       if (!nav && !prevReq) await waitSlide();
       skip = null;
       stage.classList.remove('in');
