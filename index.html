@@ -186,21 +186,24 @@
 
   // Painting effect (WebGL). Reload the page to see changes.
   const PAINT = {
+    revealStart:    0.15,   // 0..0.5    head start of the paint (higher = paint begins sooner)
+    revealSpeed:    1.8,    // 1..3      how fast the paint spreads (higher = faster; ~1.3 is slow, 2.5 is fast)
+    paintDoneAt:    0.8,    // 0.3..1    fraction of the slide after which the painting is complete and just holds
     revealSoftness: 0.2,    // 0.05..0.5  how gradually paint creeps in (low = crisp front, high = diffuse)
     wobble:         0.010,  // 0..0.03    wet-paper distortion of the brush position (0 = none)
     strokeLength:   2.1,    // 0.5..3     length of the brush strokes (higher = longer, smoother smears)
-    washMix:        0.4,    // 0..1       how much colour bleeds softly beyond the strokes
-    posterize:      0.6,    // 0..1       strength of flat pigment layers (0 = smooth, 1 = hard bands)
-    posterizeLevels: 4,     // 2..12      number of tone levels per channel (fewer = more graphic)
-    saturation:     1.28,   // 0.6..1.8   pigment saturation (1 = same as photo)
-    paperLift:      0.22,   // 0..0.5     lighten towards paper white (watery, airy look)
-    blooms:         0.28,   // 0..0.5     dark-rimmed 'cauliflower' blooms (0 = none)
+    washMix:        0.6,    // 0..1       how much colour bleeds softly beyond the strokes
+    posterize:      0.3,    // 0..1       strength of flat pigment layers (0 = smooth, 1 = hard bands)
+    posterizeLevels: 8,     // 2..12      number of tone levels per channel (fewer = more graphic)
+    saturation:     1.4,    // 0.6..1.8   pigment saturation (1 = same as photo)
+    paperLift:      0.12,   // 0..0.5     lighten towards paper white (watery, airy look)
+    blooms:         0.1,    // 0..0.5     dark-rimmed 'cauliflower' blooms (0 = none)
     edgeDarkening:  0.3,    // 0..1       pigment pooling at shape borders
-    bristles:       0.09,   // 0..0.3     faint brush-hair streaks along the strokes
-    granulation:    0.10,   // 0..0.3     pigment settling in paper grooves (more in dark tones)
-    paperTexture:   0.05,   // 0..0.15    visible paper fibres / grain
+    bristles:       0.05,   // 0..0.3     faint brush-hair streaks along the strokes
+    granulation:    0.04,   // 0..0.3     pigment settling in paper grooves (more in dark tones)
+    paperTexture:   0.03,   // 0..0.15    visible paper fibres / grain
     wetEdge:        0.12,   // 0..0.4     darker rim at the advancing front of the paint
-    pencil:         0.7     // 0..1       hand-drawn graphite outline strength (0 = off)
+    pencil:         0.5     // 0..1       hand-drawn graphite outline strength (0 = off)
   };
   /* ============================================== */
   const F = n => Number.isInteger(n) ? n.toFixed(1) : String(n);   // JS number -> GLSL float literal
@@ -306,7 +309,7 @@
 
       // ---- where the paint has arrived (organic front, wider = gentler) ----
       float n = fbm(uv * 3. + uSeed);
-      float t = uP * 1.5 - .25;
+      float t = uP * ${F(PAINT.revealSpeed)} - ${F(PAINT.revealStart)};
       float m = smoothstep(n - ${F(PAINT.revealSoftness)}, n + ${F(PAINT.revealSoftness)}, t);
       if (m < .002){ gl_FragColor = vec4(photo, 1.); return; }
 
@@ -493,7 +496,7 @@
     requestAnimationFrame(frame);
     if (now - lastDraw < 33) return;               // ~30 fps is plenty for a slow wash
     lastDraw = now;
-    const p = Math.min(1, (performance.now() - slideStart) / SLIDE_MS);
+    const p = Math.min(1, (performance.now() - slideStart) / (SLIDE_MS * PAINT.paintDoneAt));
     gl.uniform1f(loc.uP, p);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
