@@ -285,7 +285,7 @@
     { file: '2026-09-a', caption: 'Uitzicht op Inktpot en IK gebouw, avondrood.' },
     { file: '2026-09-b', caption: 'NS kantoor gezien vanaf Moreelsepark, in avondrood.' },
     { file: '2026-09-c', caption: 'Uitzicht op Bollendak bij Stationsplein, vanaf Moreelsepark.' }
-  ].map(i => ({ src: `assets/${i.file}.jpg`, caption: i.caption }));
+  ].map(i => ({ id: i.file, src: `assets/${i.file}.jpg`, caption: i.caption }));
 
   const QUOTES = [
     { title: 'Hendrick Moreelse', text: 'Utrechtse burgemeester, hoogleraar, raadsheer, en bedenker van een nooit uitgevoerd uitbreidingsplan voor de stad Utrecht.', link: { label: 'Wikipedia', href: 'https://nl.wikipedia.org/wiki/Hendrick_Moreelse' } },
@@ -327,18 +327,49 @@
       img.src = src;
     });
   }
-  async function prepareNext() {
+  // Photos come from a shuffled deck, so every photo shows once before any repeats.
+  let deck = [];
+  const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  function nextFromDeck() {
+    if (!deck.length) {
+      deck = shuffle(IMAGES.map((_, i) => i));
+      const top = deck.length - 1;
+      if (deck.length > 1 && deck[top] === lastImg) [deck[top], deck[0]] = [deck[0], deck[top]];   // no repeat across the seam
+    }
+    return deck.pop();
+  }
+
+  // Prepares a slide: the requested photo id if it exists (and loads), otherwise a random photo.
+  async function prepareNext(wantedId) {
+    let want = IMAGES.findIndex(i => i.id === wantedId);
     for (let tries = 0; tries < 6; tries++) {
-      const i = pickDifferent(IMAGES.length, lastImg);
+      const i = want >= 0 ? want : nextFromDeck();
+      want = -1;                                    // a requested photo gets one try only
       lastImg = i;
       try {
         const img = await loadImage(IMAGES[i].src);
         const q = pickDifferent(QUOTES.length, lastQuote);
         lastQuote = q;
-        return { img, quote: QUOTES[q], caption: IMAGES[i].caption };
+        return { id: IMAGES[i].id, img, quote: QUOTES[q], caption: IMAGES[i].caption };
       } catch (e) { /* try another one */ }
     }
     return null;
+  }
+
+  /* ---------- URL <-> photo (#2026-08-b) ---------- */
+  const hashId = () => { try { return decodeURIComponent(location.hash.slice(1)); } catch (e) { return ''; } };
+  const isPhotoId = id => IMAGES.some(i => i.id === id);
+  // mode: 'push' | 'replace' | 'none' (URL already right). The title is set right AFTER the history
+  // call, in the same tick: that way the new entry is recorded with the new title, while the entry
+  // we are leaving keeps its own (setting the title before pushState would rename the old entry).
+  function setUrl(id, mode) {
+    if (mode !== 'none') {
+      try {
+        const url = location.pathname + location.search + '#' + encodeURIComponent(id);
+        if (mode === 'push') history.pushState(null, '', url); else history.replaceState(null, '', url);
+      } catch (e) { /* e.g. restricted origins: URL sync is optional */ }
+    }
+    document.title = `Moreelsepark.nl – ${id}`;
   }
 
   /* ---------- WebGL watercolor ---------- */
@@ -615,23 +646,59 @@
     stage.classList.add('in');
   }
 
-  let skip = null;
+  let skip = null;          // resolves the current wait early
+  let nav = null;           // photo id requested via browser back/forward or an edited URL
+  let currentId = null;
+  let interacted = false;   // user activation (click/tap/key) – see history note in run()
+  ['pointerdown', 'keydown', 'touchstart'].forEach(ev => addEventListener(ev, () => { interacted = true; }, { capture: true, passive: true }));
+
   async function run() {
     initGL();
     addEventListener('resize', layoutGL);
-    let upcoming = prepareNext();
+
+    const startId = hashId();
+    const startIdx = IMAGES.findIndex(i => i.id === startId);
+    if (startIdx >= 0) deck = shuffle(IMAGES.map((_, i) => i).filter(i => i !== startIdx));   // linked photo opens the cycle
+    let upcoming = prepareNext(startIdx >= 0 ? startId : null);
+    let first = true;
+    let pushed = 0;          // history entries built so far (capped at one full cycle)
+
     for (;;) {
-      const slide = await upcoming;
+      let slide, mode;
+      if (nav) {                                    // history navigation: show that photo, don't add history
+        const id = nav; nav = null;
+        slide = await prepareNext(id);
+        mode = slide && slide.id === id ? 'none' : 'replace';
+      } else {
+        slide = await upcoming;
+        // Browsers skip history entries that a page adds before the user has interacted with it
+        // (Back would jump straight off the site). So: only build history after a click/tap/key,
+        // and only for one full cycle; otherwise just keep the URL current.
+        const canPush = interacted && pushed < IMAGES.length;
+        mode = first ? (slide && slide.id === startId ? 'none' : 'replace') : (canPush ? 'push' : 'replace');
+        if (mode === 'push') pushed++;
+        upcoming = prepareNext();                   // preload the next one while this one plays
+      }
+      first = false;
       if (!slide) { await sleep(5000); upcoming = prepareNext(); continue; }
+
+      currentId = slide.id;
+      setUrl(slide.id, mode);
       present(slide);
-      upcoming = prepareNext();                     // preload while this one plays
-      await Promise.race([sleep(SLIDE_MS), new Promise(r => skip = r)]);
+      if (!nav) await Promise.race([sleep(SLIDE_MS), new Promise(r => skip = r)]);
       skip = null;
       stage.classList.remove('in');
       await sleep(FADE_MS);
     }
   }
+
   addEventListener('keydown', e => { if (e.key === 'ArrowRight' && skip) skip(); });
+  addEventListener('popstate', () => {              // back/forward buttons, or a hand-edited #hash
+    const id = hashId();
+    if (!isPhotoId(id) || id === currentId) return;
+    nav = id;
+    if (skip) skip();
+  });
 
   run();
 })();
