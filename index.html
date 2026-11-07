@@ -187,7 +187,7 @@
   /* decorative label on the fact plaque */
   #fact-plate .kicker {
     display: flex; align-items: center; gap: .55rem;
-    margin: 0 0 1rem;
+    margin: 0; padding-right: 2.2rem; cursor: pointer;
     font-size: .88rem; line-height: 1.4; font-style: italic; white-space: nowrap;   /* same as the photo plaque */
     color: var(--paper-ink);
     opacity: 0.7;
@@ -198,6 +198,21 @@
   }
 
   #fact-plate { padding-top: 1.05rem; }
+  /* collapsible body: animate 0fr -> 1fr where supported, otherwise it simply toggles */
+  #fact-body { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .35s ease, visibility .35s; }
+  #fact-body > div { overflow: hidden; min-height: 0; padding-top: 1rem; }
+  #fact-plate.collapsed #fact-body { grid-template-rows: 0fr; visibility: hidden; }
+  #fact-plate.collapsed #fact-body > div { padding-top: 0; }
+  #fact-toggle {
+    position: absolute; top: .55rem; right: .65rem; z-index: 1;
+    width: 1.9rem; height: 1.9rem; padding: 0;
+    display: grid; place-items: center;
+    background: transparent; color: var(--paper-ink); opacity: .75;
+    border: 0; border-radius: 50%; cursor: pointer;
+  }
+  #fact-toggle:hover, #fact-toggle:focus-visible { opacity: 1; background: rgba(42, 42, 36, .1); outline: none; }
+  #fact-toggle svg { width: 1.1rem; height: 1.1rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .35s ease; }
+  #fact-plate.collapsed #fact-toggle svg { transform: rotate(180deg); }
   #fact-plate h2 {
     margin: 0 0 .55rem;
     font-size: 1.35rem; font-weight: 700; letter-spacing: .02em;
@@ -234,6 +249,7 @@
   @media (prefers-reduced-motion: reduce) {
     :root { --fade: .01s; }
     .plaque { transition-duration: .01s; }
+    #fact-body, #fact-toggle svg { transition-duration: .01s; }
   }
 </style>
 </head>
@@ -263,15 +279,41 @@
     </aside>
     <article id="fact-plate" class="plaque" aria-live="polite">
       <p class="kicker">Feitje over Moreelsepark en omstreken…</p>
-      <h2 id="plate-title"></h2>
-      <p id="plate-text"></p>
-      <a id="plate-link" target="_blank" rel="noopener"></a>
+      <button id="fact-toggle" type="button" aria-controls="fact-body" aria-expanded="true" aria-label="Feitje inklappen" title="In-/uitklappen">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15 L12 9 L18 15"/></svg>
+      </button>
+      <div id="fact-body"><div>
+        <h2 id="plate-title"></h2>
+        <p id="plate-text"></p>
+        <a id="plate-link" target="_blank" rel="noopener"></a>
+      </div></div>
     </article>
   </div>
 </main>
 
 <footer><small>© <span id="year">2026</span> Moreelsepark.nl <span class="sep">|</span> <a href="https://github.com/jeroenheijmans/moreelsepark.nl" target="_blank" rel="noopener">Source on GitHub</a> <span class="sep">|</span> V1.0.4</small></footer>
 
+<script>
+(() => {
+  const plate = document.getElementById('fact-plate');
+  const btn = document.getElementById('fact-toggle');
+  const KEY = 'moreelsepark.factCollapsed';
+  let collapsed = matchMedia('(max-width: 600px) and (orientation: portrait)').matches;   // default: collapsed on phones in portrait
+  try { const v = localStorage.getItem(KEY); if (v !== null) collapsed = v === '1'; } catch (e) {}
+  const apply = () => {
+    plate.classList.toggle('collapsed', collapsed);
+    btn.setAttribute('aria-expanded', String(!collapsed));
+    btn.setAttribute('aria-label', collapsed ? 'Feitje uitklappen' : 'Feitje inklappen');
+  };
+  const toggle = () => {
+    collapsed = !collapsed; apply();
+    try { localStorage.setItem(KEY, collapsed ? '1' : '0'); } catch (e) {}
+  };
+  btn.addEventListener('click', toggle);
+  plate.querySelector('.kicker').addEventListener('click', toggle);
+  apply();
+})();
+</script>
 <script>
 (() => {
   'use strict';
