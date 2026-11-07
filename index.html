@@ -116,12 +116,18 @@
   }
   footer a:hover, footer a:focus-visible { color: var(--gold); border-color: currentColor; outline: none; }
 
-  /* ---------- B. museum plate ---------- */
-  #plate {
+  /* ---------- B. museum plaques ---------- */
+  #plates {
     position: fixed; z-index: 5;
     left: clamp(1rem, 4vw, 3rem);
     bottom: calc(2.5rem + env(safe-area-inset-bottom) + clamp(1rem, 4vh, 2.5rem));
     width: min(26rem, calc(100vw - 2rem));
+    display: flex; flex-direction: column; gap: .7rem;
+    pointer-events: none;
+  }
+  .plaque {
+    position: relative;
+    pointer-events: auto;
     padding: 1.4rem 1.6rem 1.3rem;
     background: rgba(247, 241, 227, .55);
     color: var(--paper-ink);
@@ -133,39 +139,63 @@
     transform: translateY(10px);
     transition: opacity 1.2s ease-in-out, transform 1.6s cubic-bezier(.2,.7,.2,1);
   }
-  #plate::before {
+  .plaque::before {
     content: ""; position: absolute; inset: 5px; pointer-events: none;
     border: 1px solid rgba(95, 125, 104, .45);
   }
-  #stage.in #plate { opacity: 1; transform: none; transition-delay: .5s; }
-  #plate h2 {
+  #stage.in .plaque { opacity: 1; transform: none; transition-delay: .5s; }
+  #stage.in #photo-plate { transition-delay: .8s; }
+
+  /* decorative label on the fact plaque */
+  #fact-plate .kicker {
+    display: flex; align-items: center; gap: .55rem;
+    margin: 0 0 1rem;
+    font-size: .88rem; line-height: 1.4; font-style: italic; white-space: nowrap;   /* same as the photo plaque */
+    color: var(--paper-ink);
+    opacity: 0.7;
+  }
+  #fact-plate .kicker::after {
+    content: ""; flex: 1; min-width: .8rem; height: 1px;
+    background: linear-gradient(to right, rgba(201, 150, 60, .75), transparent);
+  }
+
+  #fact-plate { padding-top: 1.05rem; }
+  #fact-plate h2 {
     margin: 0 0 .55rem;
     font-size: 1.35rem; font-weight: 700; letter-spacing: .02em;
     color: var(--ink);
   }
-  #plate h2::after {
+  #fact-plate h2::after {
     content: ""; display: block; width: 2.2rem; height: 2px; margin-top: .55rem;
     background: var(--gold);
   }
-  #plate p { margin: 0; font-size: 1.02rem; line-height: 1.55; }
-  #plate a {
+  #fact-plate p { margin: 0; font-size: 1.02rem; line-height: 1.55; }
+  #fact-plate a {
     display: inline-block; margin-top: .8rem;
     font-size: .8rem; letter-spacing: .12em; text-transform: uppercase;
     color: #1f3a2c; font-weight: 700; text-decoration: none;
     border-bottom: 1px solid rgba(31, 58, 44, .55);
     transition: color .2s, border-color .2s;
   }
-  #plate a:hover, #plate a:focus-visible { color: #8a5d10; border-color: currentColor; outline: none; }
-  #plate a::after { content: " ↗"; }
+  #fact-plate a:hover, #fact-plate a:focus-visible { color: #8a5d10; border-color: currentColor; outline: none; }
+  #fact-plate a::after { content: " ↗"; }
+
+  /* smaller photo caption plaque, above the fact plaque */
+  #photo-plate { padding: .6rem 1.1rem .62rem; }
+  #photo-plate::before { inset: 4px; }
+  #photo-plate p { margin: 0; font-size: .88rem; line-height: 1.4; font-style: italic; }
 
   @media (max-width: 600px) {
-    #plate { left: 1rem; right: 1rem; width: auto; padding: 1.1rem 1.25rem 1.05rem; }
-    #plate h2 { font-size: 1.2rem; }
-    #plate p { font-size: .96rem; }
+    #plates { left: 1rem; right: 1rem; width: auto; }
+    #fact-plate { padding: .9rem 1.25rem 1.05rem; }
+    #fact-plate h2 { font-size: 1.2rem; }
+    #fact-plate p { font-size: .96rem; }
+    #photo-plate { padding: .5rem .9rem .52rem; }
+    #photo-plate p, #fact-plate .kicker { font-size: .82rem; }
   }
   @media (prefers-reduced-motion: reduce) {
     :root { --fade: .01s; }
-    #plate { transition-duration: .01s; }
+    .plaque { transition-duration: .01s; }
   }
 </style>
 </head>
@@ -178,14 +208,20 @@
     <canvas id="gl" aria-hidden="true"></canvas>
   </div>
   <div id="veil"></div>
-  <article id="plate" aria-live="polite">
-    <h2 id="plate-title"></h2>
-    <p id="plate-text"></p>
-    <a id="plate-link" target="_blank" rel="noopener"></a>
-  </article>
+  <div id="plates">
+    <aside id="photo-plate" class="plaque" aria-live="polite">
+      <p id="photo-text"></p>
+    </aside>
+    <article id="fact-plate" class="plaque" aria-live="polite">
+      <p class="kicker">Feitje over Moreelsepark en omstreken…</p>
+      <h2 id="plate-title"></h2>
+      <p id="plate-text"></p>
+      <a id="plate-link" target="_blank" rel="noopener"></a>
+    </article>
+  </div>
 </main>
 
-<footer><small>© <span id="year">2026</span> Moreelsepark.nl <span class="sep">|</span> <a href="https://github.com/jeroenheijmans/moreelsepark.nl" target="_blank" rel="noopener">Source on GitHub</a> <span class="sep">|</span> V1.0.0</small></footer>
+<footer><small>© <span id="year">2026</span> Moreelsepark.nl <span class="sep">|</span> <a href="https://github.com/jeroenheijmans/moreelsepark.nl" target="_blank" rel="noopener">Source on GitHub</a> <span class="sep">|</span> V1.0.1</small></footer>
 
 <script>
 (() => {
@@ -219,12 +255,37 @@
   /* ============================================== */
   const F = n => Number.isInteger(n) ? n.toFixed(1) : String(n);   // JS number -> GLSL float literal
 
+  // Photos in assets/<file>.jpg; the caption is shown as 'Foto: <caption>'.
   const IMAGES = [
-    '2018-06-a','2022-09-a','2023-10-a','2024-01-a','2024-04-a','2024-04-b','2024-07-a',
-    '2024-08-a','2024-08-b','2024-09-a','2025-05-a','2025-08-a','2025-11-a','2025-11-b',
-    '2025-11-c','2026-01-a','2026-06-a','2026-06-b','2026-07-a','2026-07-b','2026-08-a',
-    '2026-08-b','2026-08-c','2026-08-d','2026-08-e','2026-09-a','2026-09-b','2026-09-c'
-  ].map(n => `assets/${n}.jpg`);
+    { file: '2018-06-a', caption: 'Uitzicht vanaf Moreelsepark op de Inktpot.' },
+    { file: '2022-09-a', caption: 'De Inktpot vanaf de ingang, begin van de avond.' },
+    { file: '2023-10-a', caption: 'Uitzicht vanaf Moreelsepark tussen de Dom en de Inktpot door.' },
+    { file: '2024-01-a', caption: 'Winters uitzicht vanaf Moreelsepark richting Dom en Inktpot.' },
+    { file: '2024-04-a', caption: 'Recente verbouwing plint van Moreelsepark gebouwen.' },
+    { file: '2024-04-b', caption: 'Regenboog achter de Inktpot.' },
+    { file: '2024-07-a', caption: 'Uitzicht vanaf Bollendank Stationsplein, richting Moreelsepark.' },
+    { file: '2024-08-a', caption: 'Uitzicht op de Catharijnesingel.' },
+    { file: '2024-08-b', caption: 'Uitzicht vanaf Moreelsepark op Inktpot en IK gebouw.' },
+    { file: '2024-09-a', caption: 'Uitzicht vanaf Moreelsepark richting de Dom, zonsopkomst.' },
+    { file: '2025-05-a', caption: 'Maan boven de Inktpot, gezien vanaf Moreelsepark.' },
+    { file: '2025-08-a', caption: 'Regenboog boven binnenstad van Utrecht, gezien vanaf Moreelsepark.' },
+    { file: '2025-11-a', caption: 'Uitzicht Moreelsepark op avondwerk in de Rabobank toren.' },
+    { file: '2025-11-b', caption: 'Uitzicht vanaf Moreelsepark richting Moreelsebrug en Rabobank toren.' },
+    { file: '2025-11-c', caption: 'Uitzicht vanaf Moreelsepark richting Inktpot en binnestad, bij zonsopkomst.' },
+    { file: '2026-01-a', caption: 'Besneeuwd uitzicht richting Oudegracht, vanaf Moreelsepark.' },
+    { file: '2026-06-a', caption: 'Donkere wolken boven de Inktpot, vanaf Moreelsepark gezien.' },
+    { file: '2026-06-b', caption: 'Volle maan naast de Inktpot, gezien vanaf Moreelsepark.' },
+    { file: '2026-07-a', caption: 'Domtoren gezien vanaf Moreelsepark, ochtendrood vroeg op een zomermorgen.' },
+    { file: '2026-07-b', caption: 'Catharijnesingel en Hoog Catharijne.' },
+    { file: '2026-08-a', caption: 'Uitzicht bovenop Hoog Catharijne, vanaf Moreelsepark.' },
+    { file: '2026-08-b', caption: 'Uitzicht op gebouwen aan Catharijnesingel, vanaf Moreelsepark.' },
+    { file: '2026-08-c', caption: 'Uitzicht van boven naar beneden, langs de noodtrappen bij Moreelsepark.' },
+    { file: '2026-08-d', caption: 'Uitzicht op binnenzijde appartementen bij Moreelsepark.' },
+    { file: '2026-08-e', caption: 'Uitzicht vanaf Moreelsepark op nieuwe flats rondom Utrecht CS.' },
+    { file: '2026-09-a', caption: 'Uitzicht op Inktpot en IK gebouw, avondrood.' },
+    { file: '2026-09-b', caption: 'NS kantoor gezien vanaf Moreelsepark, in avondrood.' },
+    { file: '2026-09-c', caption: 'Uitzicht op Bollendak bij Stationsplein, vanaf Moreelsepark.' }
+  ].map(i => ({ src: `assets/${i.file}.jpg`, caption: i.caption }));
 
   const QUOTES = [
     { title: 'Hendrick Moreelse', text: 'Utrechtse burgemeester, hoogleraar, raadsheer, en bedenker van een nooit uitgevoerd uitbreidingsplan voor de stad Utrecht.', link: { label: 'Wikipedia', href: 'https://nl.wikipedia.org/wiki/Hendrick_Moreelse' } },
@@ -271,10 +332,10 @@
       const i = pickDifferent(IMAGES.length, lastImg);
       lastImg = i;
       try {
-        const img = await loadImage(IMAGES[i]);
+        const img = await loadImage(IMAGES[i].src);
         const q = pickDifferent(QUOTES.length, lastQuote);
         lastQuote = q;
-        return { img, quote: QUOTES[q] };
+        return { img, quote: QUOTES[q], caption: IMAGES[i].caption };
       } catch (e) { /* try another one */ }
     }
     return null;
@@ -530,9 +591,9 @@
   }
 
   /* ---------- the show ---------- */
-  const el = { title: $('plate-title'), text: $('plate-text'), link: $('plate-link') };
+  const el = { title: $('plate-title'), text: $('plate-text'), link: $('plate-link'), photo: $('photo-text') };
 
-  function present({ img, quote }) {
+  function present({ img, quote, caption }) {
     bg.style.backgroundImage = `url("${img.src}")`;
     if (gl) {
       try { uploadTexture(img); }
@@ -541,6 +602,9 @@
         disableGL();
       }
     }
+    const lbl = document.createElement('strong');
+    lbl.textContent = 'Foto: ';
+    el.photo.replaceChildren(lbl, caption);
     el.title.textContent = quote.title;
     el.text.textContent = quote.text;
     el.link.textContent = quote.link.label;
