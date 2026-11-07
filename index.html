@@ -116,6 +116,42 @@
   }
   footer a:hover, footer a:focus-visible { color: var(--gold); border-color: currentColor; outline: none; }
 
+  /* ---------- controls: prev / next / pause ---------- */
+  .ctl {
+    position: fixed; z-index: 6;
+    width: 2.75rem; height: 2.75rem; padding: 0; margin: 0;
+    display: grid; place-items: center;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, .16);
+    background: rgba(24, 26, 26, .5);
+    color: rgba(247, 241, 227, .92);
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    box-shadow: 0 4px 14px -4px rgba(0, 0, 0, .5);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background .2s, opacity .2s, border-color .2s;
+  }
+  .ctl:hover { background: rgba(24, 26, 26, .78); border-color: rgba(226, 181, 99, .5); }
+  .ctl:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .ctl:disabled { opacity: .28; cursor: default; background: rgba(24, 26, 26, .5); border-color: rgba(255, 255, 255, .16); }
+  .ctl svg { width: 1.5rem; height: 1.5rem; display: block; fill: currentColor; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
+  #prev, #next { top: 50%; margin-top: -1.375rem; }   /* exact vertical middle */
+  #prev { left: clamp(.5rem, 2vw, 1.5rem); }
+  #next { right: clamp(.5rem, 2vw, 1.5rem); }
+  #pause {
+    left: clamp(.5rem, 2vw, 1.5rem);
+    top: calc(var(--bar-h) + env(safe-area-inset-top) + .75rem);
+    width: 2.4rem; height: 2.4rem;
+  }
+  #pause .i-play { display: none; }
+  #pause[aria-pressed="true"] .i-play { display: block; }
+  #pause[aria-pressed="true"] .i-pause { display: none; }
+  @media (max-width: 600px) {
+    .ctl { width: 2.5rem; height: 2.5rem; }
+    #prev, #next { margin-top: -1.25rem; }
+    #pause { width: 2.2rem; height: 2.2rem; }
+  }
+
   /* ---------- B. museum plaques ---------- */
   #plates {
     position: fixed; z-index: 5;
@@ -201,6 +237,17 @@
 </head>
 <body>
 <header><h1><a href="./" aria-label="Moreelsepark.nl – naar de startpagina">Moreelse<span>park</span>.nl</a></h1></header>
+
+<button id="prev" class="ctl" type="button" aria-label="Vorige foto" title="Vorige foto (←)" disabled>
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.2 L7.7 12 L14.7 17.8 Z"/></svg>
+</button>
+<button id="next" class="ctl" type="button" aria-label="Volgende foto" title="Volgende foto (→)">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.3 6.2 L16.3 12 L9.3 17.8 Z"/></svg>
+</button>
+<button id="pause" class="ctl" type="button" aria-pressed="false" aria-label="Pauzeer diavoorstelling" title="Pauzeer">
+  <svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="6" width="3.4" height="12" rx="1"/><rect x="13.6" y="6" width="3.4" height="12" rx="1"/></svg>
+  <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.3 6.2 L16.3 12 L9.3 17.8 Z"/></svg>
+</button>
 
 <main id="stage">
   <div id="pan">
@@ -648,9 +695,47 @@
 
   let skip = null;          // resolves the current wait early
   let nav = null;           // photo id requested via browser back/forward or an edited URL
+  let prevReq = false;      // 'previous photo' requested by button/key
   let currentId = null;
   let interacted = false;   // user activation (click/tap/key) – see history note in run()
   ['pointerdown', 'keydown', 'touchstart'].forEach(ev => addEventListener(ev, () => { interacted = true; }, { capture: true, passive: true }));
+
+  // our own trail of shown photos, so 'previous' never depends on (skippable) browser history
+  const trail = [];
+  let cursor = -1;
+
+  // slide timer that can be paused (painting and drift keep going so a paused photo still finishes its painting)
+  let paused = false, tBase = 0, tSince = 0;
+  const elapsed = () => tBase + (paused ? 0 : performance.now() - tSince);
+  function waitSlide() {
+    return new Promise(res => {
+      skip = res;
+      const poll = () => {
+        if (skip !== res) return;                   // resolved elsewhere (skip button, history, ...)
+        const left = SLIDE_MS - elapsed();
+        if (!paused && left <= 0) { res(); return; }
+        setTimeout(poll, paused ? 250 : Math.min(250, Math.max(20, left)));
+      };
+      poll();
+    });
+  }
+
+  const btn = { prev: $('prev'), next: $('next'), pause: $('pause') };
+  function setPaused(p) {
+    if (p === paused) return;
+    if (p) tBase = elapsed();
+    else { tBase = Math.min(tBase, Math.max(0, SLIDE_MS - 3000)); tSince = performance.now(); }   // resume with >= 3s left
+    paused = p;
+    btn.pause.setAttribute('aria-pressed', String(p));
+    const label = p ? 'Afspelen' : 'Pauzeer';
+    btn.pause.title = label;
+    btn.pause.setAttribute('aria-label', p ? 'Hervat diavoorstelling' : 'Pauzeer diavoorstelling');
+  }
+  const goNext = () => { if (skip) skip(); };
+  const goPrev = () => { if (skip && cursor > 0) { prevReq = true; skip(); } };
+  btn.next.addEventListener('click', goNext);
+  btn.prev.addEventListener('click', goPrev);
+  btn.pause.addEventListener('click', () => setPaused(!paused));
 
   async function run() {
     initGL();
@@ -665,10 +750,20 @@
 
     for (;;) {
       let slide, mode;
+      const wantPrev = prevReq; prevReq = false;
       if (nav) {                                    // history navigation: show that photo, don't add history
         const id = nav; nav = null;
         slide = await prepareNext(id);
         mode = slide && slide.id === id ? 'none' : 'replace';
+        if (slide) {
+          const k = trail.lastIndexOf(slide.id);
+          if (k >= 0) cursor = k; else { trail.length = cursor + 1; trail.push(slide.id); cursor++; }
+        }
+      } else if (wantPrev && cursor > 0 || cursor < trail.length - 1) {   // walking back/forward along the trail
+        const dir = wantPrev && cursor > 0 ? -1 : 1;
+        slide = await prepareNext(trail[cursor + dir]);
+        mode = 'replace';
+        if (slide) { cursor += dir; trail[cursor] = slide.id; }
       } else {
         slide = await upcoming;
         // Browsers skip history entries that a page adds before the user has interacted with it
@@ -678,6 +773,7 @@
         mode = first ? (slide && slide.id === startId ? 'none' : 'replace') : (canPush ? 'push' : 'replace');
         if (mode === 'push') pushed++;
         upcoming = prepareNext();                   // preload the next one while this one plays
+        if (slide) { trail.push(slide.id); cursor = trail.length - 1; }
       }
       first = false;
       if (!slide) { await sleep(5000); upcoming = prepareNext(); continue; }
@@ -685,14 +781,19 @@
       currentId = slide.id;
       setUrl(slide.id, mode);
       present(slide);
-      if (!nav) await Promise.race([sleep(SLIDE_MS), new Promise(r => skip = r)]);
+      btn.prev.disabled = cursor <= 0;
+      tBase = 0; tSince = performance.now();
+      if (!nav && !prevReq) await waitSlide();
       skip = null;
       stage.classList.remove('in');
       await sleep(FADE_MS);
     }
   }
 
-  addEventListener('keydown', e => { if (e.key === 'ArrowRight' && skip) skip(); });
+  addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') goNext();
+    else if (e.key === 'ArrowLeft') goPrev();
+  });
   addEventListener('popstate', () => {              // back/forward buttons, or a hand-edited #hash
     const id = hashId();
     if (!isPhotoId(id) || id === currentId) return;
