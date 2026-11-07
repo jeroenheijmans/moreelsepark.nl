@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Moreelsepark.nl</title>
+<meta name="description" content="Moreelsepark.nl – een langzaam diavoorstelling over het Moreelsepark in Utrecht, zijn naamgever en zijn festival.">
+<meta name="author" content="Moreelsepark.nl">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#15221e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Moreelsepark">
+<meta name="msapplication-TileColor" content="#15221e">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Moreelsepark.nl">
+<meta property="og:title" content="Moreelsepark.nl">
+<meta property="og:description" content="Een langzaam diavoorstelling over het Moreelsepark in Utrecht.">
+<meta property="og:url" content="https://moreelsepark.nl/">
+<meta property="og:image" content="https://moreelsepark.nl/assets/2026-08-b.jpg">
+<meta property="og:locale" content="nl_NL">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="favicon.svg">
+<style>
+  :root {
+    --ink: #15221e;
+    --ink-soft: #1f322b;
+    --paper: #f7f1e3;
+    --paper-ink: #2a2a24;
+    --gold: #e2b563;
+    --moss: #5f7d68;
+    --bar-h: 3.5rem;
+    --fade: 1.6s;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--serif);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- A. visual ---------- */
+  #pan, #pan > * { position: fixed; inset: 0; }
+  #pan {
+    will-change: transform, opacity;
+    opacity: 0;
+    transition: opacity var(--fade) ease-in-out;
+    transform-origin: 50% 50%;
+  }
+  #bg {
+    background: center / cover no-repeat var(--ink-soft);
+  }
+  #gl {
+    width: 100%; height: 100%;
+    display: none;
+  }
+  .gl #gl { display: block; }
+  #stage.in #pan { opacity: 1; }
+
+  #veil {
+    position: fixed; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(8, 14, 12, .45) 100%),
+      linear-gradient(to top, rgba(8, 14, 12, .45), transparent 35%);
+  }
+
+  /* ---------- header & footer ---------- */
+  header, footer {
+    position: fixed; left: 0; right: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(21, 34, 30, .62);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    backdrop-filter: blur(14px) saturate(1.2);
+    text-align: center;
+  }
+  header {
+    top: 0;
+    height: calc(var(--bar-h) + env(safe-area-inset-top));
+    padding-top: env(safe-area-inset-top);
+    border-bottom: 1px solid rgba(226, 181, 99, .22);
+  }
+  footer {
+    bottom: 0;
+    height: calc(2.5rem + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    border-top: 1px solid rgba(226, 181, 99, .22);
+    font-size: .78rem;
+    letter-spacing: .08em;
+    color: rgba(247, 241, 227, .72);
+  }
+  header h1 {
+    margin: 0;
+    font-weight: 400;
+    font-size: clamp(1.15rem, 1rem + 1vw, 1.6rem);
+    letter-spacing: .32em;
+    text-transform: uppercase;
+    text-indent: .32em; /* balances trailing letter-spacing */
+    color: var(--paper);
+  }
+  header h1 span { color: var(--gold); }
+
+  /* ---------- B. museum plate ---------- */
+  #plate {
+    position: fixed; z-index: 5;
+    left: clamp(1rem, 4vw, 3rem);
+    bottom: calc(2.5rem + env(safe-area-inset-bottom) + clamp(1rem, 4vh, 2.5rem));
+    width: min(26rem, calc(100vw - 2rem));
+    padding: 1.4rem 1.6rem 1.3rem;
+    background: rgba(247, 241, 227, .55);
+    color: var(--paper-ink);
+    border-radius: 2px;
+    box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 18px 40px -12px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.25);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 1.2s ease-in-out, transform 1.6s cubic-bezier(.2,.7,.2,1);
+  }
+  #plate::before {
+    content: ""; position: absolute; inset: 5px; pointer-events: none;
+    border: 1px solid rgba(95, 125, 104, .45);
+  }
+  #stage.in #plate { opacity: 1; transform: none; transition-delay: .5s; }
+  #plate h2 {
+    margin: 0 0 .55rem;
+    font-size: 1.35rem; font-weight: 700; letter-spacing: .02em;
+    color: var(--ink);
+  }
+  #plate h2::after {
+    content: ""; display: block; width: 2.2rem; height: 2px; margin-top: .55rem;
+    background: var(--gold);
+  }
+  #plate p { margin: 0; font-size: 1.02rem; line-height: 1.55; }
+  #plate a {
+    display: inline-block; margin-top: .8rem;
+    font-size: .8rem; letter-spacing: .12em; text-transform: uppercase;
+    color: #3d5a49; text-decoration: none;
+    border-bottom: 1px solid rgba(61, 90, 73, .4);
+    transition: color .2s, border-color .2s;
+  }
+  #plate a:hover, #plate a:focus-visible { color: #8a5d10; border-color: currentColor; outline: none; }
+  #plate a::after { content: " ↗"; }
+
+  @media (max-width: 600px) {
+    #plate { left: 1rem; right: 1rem; width: auto; padding: 1.1rem 1.25rem 1.05rem; }
+    #plate h2 { font-size: 1.2rem; }
+    #plate p { font-size: .96rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :root { --fade: .01s; }
+    #plate { transition-duration: .01s; }
+  }
+</style>
+</head>
+<body>
+<header><h1>Moreelse<span>park</span>.nl</h1></header>
+
+<main id="stage">
+  <div id="pan">
+    <div id="bg" role="img" aria-label="Foto van het Moreelsepark"></div>
+    <canvas id="gl" aria-hidden="true"></canvas>
+  </div>
+  <div id="veil"></div>
+  <article id="plate" aria-live="polite">
+    <h2 id="plate-title"></h2>
+    <p id="plate-text"></p>
+    <a id="plate-link" target="_blank" rel="noopener"></a>
+  </article>
+</main>
+
+<footer><small>© <span id="year">2026</span> Moreelsepark.nl</small></footer>
+
+<script>
+(() => {
+  'use strict';
+
+  const SLIDE_MS = 20000;
+  const FADE_MS = 1700;
+
+  const IMAGES = [
+    '2018-06-a','2022-09-a','2023-10-a','2024-01-a','2024-04-a','2024-04-b','2024-07-a',
+    '2024-08-a','2024-08-b','2024-09-a','2025-05-a','2025-08-a','2025-11-a','2025-11-b',
+    '2025-11-c','2026-01-a','2026-06-a','2026-06-b','2026-07-a','2026-07-b','2026-08-a',
+    '2026-08-b','2026-08-c','2026-08-d','2026-08-e','2026-09-a','2026-09-b','2026-09-c'
+  ].map(n => `assets/${n}.jpg`);
+
+  const QUOTES = [
+    { title: 'Hendrick Moreelse',
+      text: 'Utrechtse burgemeester, hoogleraar, raadsheer, en bedenker van een nooit uitgevoerd uitbreidingsplan voor de stad Utrecht.',
+      link: { label: 'Wikipedia', href: 'https://nl.wikipedia.org/wiki/Hendrick_Moreelse' } },
+    { title: 'De Parade',
+      text: 'Jaarlijks festival op het Moreelsepark, met theater-, dans-, mime- en muziekvoorstellingen voor jong en oud.',
+      link: { label: 'DeParade.nl', href: 'https://deparade.nl' } },
+    { title: 'Moreelsepark',
+      text: 'Naam van zowel het park als de straat in de binnenstad van Utrecht.',
+      link: { label: 'Wikipedia', href: 'https://nl.wikipedia.org/wiki/Moreelsepark' } }
+  ];
+
+  const $ = id => document.getElementById(id);
+  const stage = $('stage'), pan = $('pan'), bg = $('bg'), canvas = $('gl');
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const rand = (a, b) => a + Math.random() * (b - a);
+
+  $('year').textContent = new Date().getFullYear();
+
+  /* ---------- helpers ---------- */
+  let lastImg = -1, lastQuote = -1;
+  function pickDifferent(n, last) {
+    if (n < 2) return 0;
+    let i; do { i = Math.floor(Math.random() * n); } while (i === last);
+    return i;
+  }
+  function loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.decoding = 'async';
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('load ' + src));
+      img.src = src;
+    });
+  }
+  async function prepareNext() {
+    for (let tries = 0; tries < 6; tries++) {
+      const i = pickDifferent(IMAGES.length, lastImg);
+      lastImg = i;
+      try {
+        const img = await loadImage(IMAGES[i]);
+        const q = pickDifferent(QUOTES.length, lastQuote);
+        lastQuote = q;
+        return { img, quote: QUOTES[q] };
+      } catch (e) { /* try another one */ }
+    }
+    return null;
+  }
+
+  /* ---------- WebGL watercolor ---------- */
+  const VERT = `
+    attribute vec2 aPos; varying vec2 vUv;
+    void main(){ vUv = aPos * .5 + .5; gl_Position = vec4(aPos, 0., 1.); }`;
+
+  const FRAG = `
+    precision highp float;
+    varying vec2 vUv;
+    uniform sampler2D uTex;
+    uniform vec2  uScale;   // cover-fit: visible part of the image in uv
+    uniform float uStep;    // brush radius in image-uv units
+    uniform float uP;       // 0..1 progress of the painting
+    uniform float uSeed;
+    uniform vec2  uRes;
+
+    float hash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+    float vnoise(vec2 p){
+      vec2 i = floor(p), f = fract(p); f = f*f*(3.-2.*f);
+      return mix(mix(hash(i), hash(i+vec2(1,0)), f.x), mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), f.x), f.y);
+    }
+    float fbm(vec2 p){
+      float a = .5, s = 0.;
+      for (int i = 0; i < 4; i++){ s += a * vnoise(p); p = p * 2.03 + 11.7; a *= .5; }
+      return s;
+    }
+    vec3 tex(vec2 uv){ return texture2D(uTex, vec2(clamp(uv.x,0.,1.), 1. - clamp(uv.y,0.,1.))).rgb; }
+    float lum(vec3 c){ return dot(c, vec3(.299,.587,.114)); }
+
+    // Kuwahara filter: flat, painterly regions with preserved edges
+    vec3 kuwahara(vec2 uv, vec2 s){
+      vec3 res = vec3(0.); float minV = 1e9;
+      for (int q = 0; q < 4; q++){
+        vec2 sg = vec2((q == 1 || q == 2) ? 1. : -1., q >= 2 ? 1. : -1.);
+        vec3 sum = vec3(0.), sum2 = vec3(0.);
+        for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++){
+          vec3 c = tex(uv + sg * vec2(float(i), float(j)) * s);
+          sum += c; sum2 += c * c;
+        }
+        vec3 m = sum / 9.; vec3 v = sum2 / 9. - m * m;
+        float vs = v.r + v.g + v.b;
+        if (vs < minV){ minV = vs; res = m; }
+      }
+      return res;
+    }
+
+    void main(){
+      vec2 uv = (vUv - .5) * uScale + .5;
+      vec3 photo = tex(uv);
+      if (uP < .001){ gl_FragColor = vec4(photo, 1.); return; }
+
+      // wobbly "wet paper" distortion of where the brush lands
+      vec2 warp = (vec2(fbm(uv * 7. + uSeed), fbm(uv * 7. + 31.4 + uSeed)) - .5) * .012;
+      vec2 puv = uv + warp;
+      vec2 s = vec2(uStep) * vec2(1., uRes.x / uRes.y * uScale.y / uScale.x);
+
+      vec3 c = kuwahara(puv, s);
+
+      // soft posterize -> pigment layers
+      float L = 7.;
+      c = mix(c, floor(c * L + .5) / L, .45);
+
+      // ink outline from luminance gradient
+      float e = 1.6;
+      float gx = lum(tex(puv + vec2(s.x * e, 0.))) - lum(tex(puv - vec2(s.x * e, 0.)));
+      float gy = lum(tex(puv + vec2(0., s.y * e))) - lum(tex(puv - vec2(0., s.y * e)));
+      float edge = smoothstep(.04, .28, length(vec2(gx, gy)));
+
+      // watercolor tones: lighter, a touch desaturated, blotchy pigment density
+      float g = lum(c);
+      c = mix(vec3(g), c, 1.08);
+      c = mix(c, vec3(1.), .14);
+      float blot = fbm(uv * 4.5 + uSeed * 2.3);
+      c *= .9 + .2 * blot;
+
+      // pigment pooling at edges + sketch line
+      c *= 1. - edge * .22;
+      c = mix(c, vec3(.16, .17, .2), edge * .32);
+
+      // paper: fibres + grain
+      vec2 px = gl_FragCoord.xy;
+      float fibre = vnoise(px * vec2(.9, .25)) * .5 + vnoise(px * vec2(.3, .8)) * .5;
+      float grain = hash(px);
+      float paper = .93 + .045 * fibre + .025 * grain;
+      c = mix(c * paper, vec3(.97, .95, .9) * paper, .06);
+
+      // paint creeps in organically, with darker wet edge at the front
+      float n = fbm(uv * 3. + uSeed);
+      float t = uP * 1.5 - .25;
+      float m = smoothstep(n - .12, n + .12, t);
+      float ring = smoothstep(0., .5, m) * (1. - smoothstep(.5, 1., m));
+      c *= 1. - ring * .14;
+
+      gl_FragColor = vec4(mix(photo, c, m), 1.);
+    }`;
+
+  let gl = null, prog = null, loc = {}, tex = null, glState = { scale: [1, 1], step: .004, seed: 0, img: null };
+  let slideStart = 0, running = false, lastDraw = 0;
+
+  function initGL() {
+    if (reduceMotion) return false;
+    try {
+      gl = canvas.getContext('webgl', { antialias: false, alpha: false, powerPreference: 'low-power' });
+      if (!gl) return false;
+      const sh = (type, src) => {
+        const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+        return s;
+      };
+      prog = gl.createProgram();
+      gl.attachShader(prog, sh(gl.VERTEX_SHADER, VERT));
+      gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FRAG));
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+      gl.useProgram(prog);
+      const buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+      const a = gl.getAttribLocation(prog, 'aPos');
+      gl.enableVertexAttribArray(a);
+      gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0);
+      ['uTex','uScale','uStep','uP','uSeed','uRes'].forEach(n => loc[n] = gl.getUniformLocation(prog, n));
+      gl.uniform1i(loc.uTex, 0);
+      canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); disableGL(); });
+      document.documentElement.classList.add('gl');
+      return true;
+    } catch (err) {
+      console.warn('WebGL effect disabled:', err);
+      gl = null;
+      return false;
+    }
+  }
+  function disableGL() {
+    running = false; gl = null;
+    document.documentElement.classList.remove('gl');
+  }
+
+  function layoutGL() {
+    if (!gl) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    let w = innerWidth * dpr, h = innerHeight * dpr;
+    const k = Math.min(1, Math.sqrt(2.4e6 / (w * h)));   // cap pixel count for weak GPUs
+    w = Math.max(1, Math.round(w * k)); h = Math.max(1, Math.round(h * k));
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+    gl.viewport(0, 0, w, h);
+    const img = glState.img;
+    if (!img) return;
+    const va = w / h, ia = img.naturalWidth / img.naturalHeight;
+    glState.scale = va > ia ? [1, ia / va] : [va / ia, 1];
+    // brush radius ≈ 2.2 device pixels, expressed in image-uv
+    glState.step = 2.2 * glState.scale[0] / w;
+    gl.uniform2f(loc.uScale, glState.scale[0], glState.scale[1]);
+    gl.uniform1f(loc.uStep, glState.step);
+    gl.uniform2f(loc.uRes, w, h);
+  }
+
+  function uploadTexture(img) {
+    glState.img = img;
+    if (tex) gl.deleteTexture(tex);
+    tex = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img);
+    glState.seed = Math.random() * 50;
+    gl.uniform1f(loc.uSeed, glState.seed);
+    layoutGL();
+  }
+
+  function frame(now) {
+    if (!running || !gl) return;
+    requestAnimationFrame(frame);
+    if (now - lastDraw < 33) return;               // ~30 fps is plenty for a slow wash
+    lastDraw = now;
+    const p = Math.min(1, (performance.now() - slideStart) / SLIDE_MS);
+    gl.uniform1f(loc.uP, p);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+
+  /* ---------- slow drifting pan/zoom ---------- */
+  let panAnim = null;
+  function startPan() {
+    if (reduceMotion || !pan.animate) return;
+    if (panAnim) panAnim.cancel();
+    const z0 = rand(1.15, 1.17), z1 = z0 + rand(.04, .07);   // extra zoom keeps the edges covered
+    const lim = 6.4;                                           // % – safely under (z-1)/2
+    const a = [rand(-lim, lim), rand(-lim, lim)];
+    let b;
+    do { b = [rand(-lim, lim), rand(-lim, lim)]; } while (Math.hypot(a[0]-b[0], a[1]-b[1]) < 5);
+    const t = (p, z) => `translate(${p[0]}%, ${p[1]}%) scale(${z})`;
+    panAnim = pan.animate(
+      [{ transform: t(a, z0) }, { transform: t(b, z1) }],
+      { duration: SLIDE_MS + FADE_MS * 2, easing: 'ease-in-out', fill: 'forwards' }
+    );
+  }
+
+  /* ---------- the show ---------- */
+  const el = { title: $('plate-title'), text: $('plate-text'), link: $('plate-link') };
+
+  function present({ img, quote }) {
+    bg.style.backgroundImage = `url("${img.src}")`;
+    if (gl) {
+      try { uploadTexture(img); }
+      catch (err) {   // e.g. file:// origin: image is "cross-origin" and can't be a texture
+        console.warn('WebGL effect disabled, showing plain photo:', err.message);
+        disableGL();
+      }
+    }
+    el.title.textContent = quote.title;
+    el.text.textContent = quote.text;
+    el.link.textContent = quote.link.label;
+    el.link.href = quote.link.href;
+    startPan();
+    slideStart = performance.now();
+    if (gl && !running) { running = true; requestAnimationFrame(frame); }
+    stage.classList.add('in');
+  }
+
+  let skip = null;
+  async function run() {
+    initGL();
+    addEventListener('resize', layoutGL);
+    let upcoming = prepareNext();
+    for (;;) {
+      const slide = await upcoming;
+      if (!slide) { await sleep(5000); upcoming = prepareNext(); continue; }
+      present(slide);
+      upcoming = prepareNext();                     // preload while this one plays
+      await Promise.race([sleep(SLIDE_MS), new Promise(r => skip = r)]);
+      skip = null;
+      stage.classList.remove('in');
+      await sleep(FADE_MS);
+    }
+  }
+  addEventListener('keydown', e => { if (e.key === 'ArrowRight' && skip) skip(); });
+
+  run();
+})();
+</script>
+</body>
+</html>
