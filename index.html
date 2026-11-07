@@ -180,8 +180,30 @@
 (() => {
   'use strict';
 
-  const SLIDE_MS = 20000;
-  const FADE_MS = 1700;
+  /* ============ SETTINGS (tweak me) ============ */
+  const SLIDE_MS = 15000;   // ms per slide, e.g. 10000..40000
+  const FADE_MS = 1700;     // ms of fade out/in between slides, e.g. 500..3000
+
+  // Painting effect (WebGL). Reload the page to see changes.
+  const PAINT = {
+    revealSoftness: 0.2,    // 0.05..0.5  how gradually paint creeps in (low = crisp front, high = diffuse)
+    wobble:         0.010,  // 0..0.03    wet-paper distortion of the brush position (0 = none)
+    strokeLength:   2.1,    // 0.5..3     length of the brush strokes (higher = longer, smoother smears)
+    washMix:        0.4,    // 0..1       how much colour bleeds softly beyond the strokes
+    posterize:      0.6,    // 0..1       strength of flat pigment layers (0 = smooth, 1 = hard bands)
+    posterizeLevels: 4,     // 2..12      number of tone levels per channel (fewer = more graphic)
+    saturation:     1.28,   // 0.6..1.8   pigment saturation (1 = same as photo)
+    paperLift:      0.22,   // 0..0.5     lighten towards paper white (watery, airy look)
+    blooms:         0.28,   // 0..0.5     dark-rimmed 'cauliflower' blooms (0 = none)
+    edgeDarkening:  0.3,    // 0..1       pigment pooling at shape borders
+    bristles:       0.09,   // 0..0.3     faint brush-hair streaks along the strokes
+    granulation:    0.10,   // 0..0.3     pigment settling in paper grooves (more in dark tones)
+    paperTexture:   0.05,   // 0..0.15    visible paper fibres / grain
+    wetEdge:        0.12,   // 0..0.4     darker rim at the advancing front of the paint
+    pencil:         0.7     // 0..1       hand-drawn graphite outline strength (0 = off)
+  };
+  /* ============================================== */
+  const F = n => Number.isInteger(n) ? n.toFixed(1) : String(n);   // JS number -> GLSL float literal
 
   const IMAGES = [
     '2018-06-a','2022-09-a','2023-10-a','2024-01-a','2024-04-a','2024-04-b','2024-07-a',
@@ -267,22 +289,10 @@
     }
     vec3 tex(vec2 uv){ return texture2D(uTex, vec2(clamp(uv.x,0.,1.), 1. - clamp(uv.y,0.,1.))).rgb; }
     float lum(vec3 c){ return dot(c, vec3(.299,.587,.114)); }
-
-    // Kuwahara filter: flat, painterly regions with preserved edges
-    vec3 kuwahara(vec2 uv, vec2 s){
-      vec3 res = vec3(0.); float minV = 1e9;
-      for (int q = 0; q < 4; q++){
-        vec2 sg = vec2((q == 1 || q == 2) ? 1. : -1., q >= 2 ? 1. : -1.);
-        vec3 sum = vec3(0.), sum2 = vec3(0.);
-        for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++){
-          vec3 c = tex(uv + sg * vec2(float(i), float(j)) * s);
-          sum += c; sum2 += c * c;
-        }
-        vec3 m = sum / 9.; vec3 v = sum2 / 9. - m * m;
-        float vs = v.r + v.g + v.b;
-        if (vs < minV){ minV = vs; res = m; }
-      }
-      return res;
+    // structure tensor contribution of one 2x2 cell: (gx*gx, gy*gy, gx*gy)
+    vec3 cell(float p00, float p10, float p01, float p11){
+      float gx = (p10 + p11 - p00 - p01) * .5, gy = (p01 + p11 - p00 - p10) * .5;
+      return vec3(gx*gx, gy*gy, gx*gy);
     }
 
     void main(){
@@ -290,49 +300,112 @@
       vec3 photo = tex(uv);
       if (uP < .001){ gl_FragColor = vec4(photo, 1.); return; }
 
-      // wobbly "wet paper" distortion of where the brush lands
-      vec2 warp = (vec2(fbm(uv * 7. + uSeed), fbm(uv * 7. + 31.4 + uSeed)) - .5) * .012;
-      vec2 puv = uv + warp;
-      vec2 s = vec2(uStep) * vec2(1., uRes.x / uRes.y * uScale.y / uScale.x);
-
-      vec3 c = kuwahara(puv, s);
-
-      // soft posterize -> pigment layers
-      float L = 7.;
-      c = mix(c, floor(c * L + .5) / L, .45);
-
-      // ink outline from luminance gradient
-      float e = 1.6;
-      float gx = lum(tex(puv + vec2(s.x * e, 0.))) - lum(tex(puv - vec2(s.x * e, 0.)));
-      float gy = lum(tex(puv + vec2(0., s.y * e))) - lum(tex(puv - vec2(0., s.y * e)));
-      float edge = smoothstep(.04, .28, length(vec2(gx, gy)));
-
-      // watercolor tones: lighter, a touch desaturated, blotchy pigment density
-      float g = lum(c);
-      c = mix(vec3(g), c, 1.08);
-      c = mix(c, vec3(1.), .14);
-      float blot = fbm(uv * 4.5 + uSeed * 2.3);
-      c *= .9 + .2 * blot;
-
-      // pigment pooling at edges + sketch line
-      c *= 1. - edge * .22;
-      c = mix(c, vec3(.16, .17, .2), edge * .32);
-
-      // paper: fibres + grain
-      vec2 px = gl_FragCoord.xy;
-      float fibre = vnoise(px * vec2(.9, .25)) * .5 + vnoise(px * vec2(.3, .8)) * .5;
-      float grain = hash(px);
-      float paper = .93 + .045 * fibre + .025 * grain;
-      c = mix(c * paper, vec3(.97, .95, .9) * paper, .06);
-
-      // paint creeps in organically, with darker wet edge at the front
+      // ---- where the paint has arrived (organic front, wider = gentler) ----
       float n = fbm(uv * 3. + uSeed);
       float t = uP * 1.5 - .25;
-      float m = smoothstep(n - .12, n + .12, t);
-      float ring = smoothstep(0., .5, m) * (1. - smoothstep(.5, 1., m));
-      c *= 1. - ring * .14;
+      float m = smoothstep(n - ${F(PAINT.revealSoftness)}, n + ${F(PAINT.revealSoftness)}, t);
+      if (m < .002){ gl_FragColor = vec4(photo, 1.); return; }
 
-      gl_FragColor = vec4(mix(photo, c, m), 1.);
+      // wobbly "wet paper" distortion of where the brush lands
+      vec2 warp = (vec2(fbm(uv * 7. + uSeed), fbm(uv * 7. + 31.4 + uSeed)) - .5) * ${F(PAINT.wobble)};
+      vec2 puv = uv + warp;
+      vec2 s = vec2(uStep) * vec2(1., uRes.x / uRes.y * uScale.y / uScale.x);
+      vec2 px = gl_FragCoord.xy;
+
+      // ---- structure tensor from a 3x3 grid (spacing ~5px) ----
+      float d = 2.4;
+      float la = lum(tex(puv + s * d * vec2(-1.,-1.))), lb = lum(tex(puv + s * d * vec2(0.,-1.))), lc = lum(tex(puv + s * d * vec2(1.,-1.)));
+      float ld = lum(tex(puv + s * d * vec2(-1., 0.))), le = lum(tex(puv)),                         lf = lum(tex(puv + s * d * vec2(1., 0.)));
+      float lg = lum(tex(puv + s * d * vec2(-1., 1.))), lh = lum(tex(puv + s * d * vec2(0., 1.))),  li = lum(tex(puv + s * d * vec2(1., 1.)));
+      vec3 J = (cell(la,lb,ld,le) + cell(lb,lc,le,lf) + cell(ld,le,lg,lh) + cell(le,lf,lh,li)) * .25;
+      float trace = J.x + J.y;
+      float edge = smoothstep(.015, .11, sqrt(trace));
+
+      // stroke direction: along edges where structure exists, meandering noise elsewhere
+      float na = (fbm(uv * 1.7 + uSeed * 1.7) - .5) * 8.;
+      vec2 dd = vec2(J.x - J.y, 2. * J.z);
+      vec2 v = mix(vec2(cos(2.*na), sin(2.*na)), dd / (length(dd) + 1e-6), smoothstep(.0008, .012, trace));
+      float th = .5 * atan(v.y, v.x);
+      vec2 tg = vec2(-sin(th), cos(th));
+
+      // ---- oil/gouache style strokes: edge-aware smoothing along the flow ----
+      vec3 cc = tex(puv);
+      vec3 acc = cc;
+      float wsumf = 1.;
+      float lenS = ${F(PAINT.strokeLength)} * mix(.4, 1., m);
+      for (int k = -6; k <= 6; k++){
+        if (k == 0) continue;
+        float fk = float(k);
+        vec3 c = tex(puv + tg * fk * lenS * s);
+        vec3 dc = c - cc;
+        float w = exp(-fk * fk * .045) * exp(-dot(dc, dc) * 14.);
+        acc += c * w; wsumf += w;
+      }
+      vec3 stroke = acc / wsumf;
+
+      // soft wash: wide low-frequency colour that bleeds beyond the strokes
+      vec3 w1 = tex(puv + s * vec2(6., 4.)), w2 = tex(puv + s * vec2(-5., 6.)), w3 = tex(puv + s * vec2(-6., -5.)), w4 = tex(puv + s * vec2(5., -6.));
+      vec3 d1 = w1 - cc, d2 = w2 - cc, d3 = w3 - cc, d4 = w4 - cc;
+      float k1 = exp(-dot(d1,d1) * 12.), k2 = exp(-dot(d2,d2) * 12.), k3 = exp(-dot(d3,d3) * 12.), k4 = exp(-dot(d4,d4) * 12.);
+      vec3 wash = (w1*k1 + w2*k2 + w3*k3 + w4*k4 + stroke * 1.5) / (k1 + k2 + k3 + k4 + 1.5);
+      vec3 c = mix(stroke, wash, ${F(PAINT.washMix)});
+
+      // pigment layers (soft posterize)
+      float L = ${F(PAINT.posterizeLevels)};
+      c = mix(c, floor(c * L + .5) / L, ${F(PAINT.posterize)});
+
+      // watercolor tones: a bit more saturated pigment, lifted, paper-white highlights
+      float g = lum(c);
+      c = clamp(mix(vec3(g), c, ${F(PAINT.saturation)}), 0., 1.);
+      c = mix(pow(c, vec3(.9)), vec3(1.), ${F(PAINT.paperLift)});
+      vec3 paperCol = vec3(.97, .95, .90);
+      c = mix(c, paperCol, smoothstep(.72, .96, g) * .5);
+
+      // blotchy pigment density + blooms (lighter cauliflower patches with a dark rim)
+      float blot = fbm(uv * 4.5 + uSeed * 2.3);
+      c *= .9 + .2 * blot;
+      float bl = fbm(uv * 2.2 + uSeed * 3.1 + 7.);
+      float rim = 1. - smoothstep(0., .022, abs(bl - .52));
+      c = mix(c, c * c, rim * ${F(PAINT.blooms)});
+      c = mix(c, paperCol, smoothstep(.52, .62, bl) * .10);
+
+      // edge darkening: pigment pools at the borders of shapes
+      c = mix(c, c * c, edge * ${F(PAINT.edgeDarkening)});
+
+      // bristle streaks along the stroke direction
+      vec2 q = vec2(dot(px, tg), dot(px, vec2(-tg.y, tg.x))) * vec2(.045, .6);
+      float streak = .5 * (vnoise(q) + vnoise(-q)) - .5;
+      c *= 1. + streak * ${F(PAINT.bristles)} * (1. - edge);
+
+      // granulation: pigment settles in paper grooves, mostly in darker tones
+      float grain = hash(px) - .5;
+      float gran = vnoise(px * .55) - .5;
+      c *= 1. + (gran * ${F(PAINT.granulation)} + grain * ${F(PAINT.granulation * 0.4)}) * (1.2 - g);
+
+      // paper: fibres + relief shading
+      float fibre = vnoise(px * vec2(.9, .25)) * .5 + vnoise(px * vec2(.3, .8)) * .5;
+      float relief = vnoise(px * .7 + vec2(.8, .6)) - vnoise(px * .7 - vec2(.8, .6));
+      float paper = ${F(1 - PAINT.paperTexture * 1.2)} + ${F(PAINT.paperTexture)} * fibre + relief * ${F(PAINT.paperTexture * 0.7)};
+      c = mix(c * paper, paperCol * paper, .05);
+
+      // darker wet edge at the advancing front
+      float ring = smoothstep(0., .5, m) * (1. - smoothstep(.5, 1., m));
+      c *= 1. - ring * ${F(PAINT.wetEdge)};
+
+      // hand-drawn pencil outline, broken and wobbly, appears before the colour
+      float e2 = 1.1;
+      float px1 = lum(tex(puv + vec2(s.x * e2, 0.))) - lum(tex(puv - vec2(s.x * e2, 0.)));
+      float py1 = lum(tex(puv + vec2(0., s.y * e2))) - lum(tex(puv - vec2(0., s.y * e2)));
+      float pen = smoothstep(.05, .2, length(vec2(px1, py1)));
+      float broken = smoothstep(.3, .6, fbm(uv * 38. + uSeed));
+      pen *= broken * (.75 + .25 * hash(px * .5));
+      vec3 graphite = vec3(.17, .16, .2);
+
+      float mc = smoothstep(.12, .95, m);       // colour arrives slightly after the line
+      float mp = smoothstep(0., .5, m);
+      vec3 outc = mix(photo, c, mc);
+      outc = mix(outc, graphite, pen * ${F(PAINT.pencil)} * mp);
+      gl_FragColor = vec4(outc, 1.);
     }`;
 
   let gl = null, prog = null, loc = {}, tex = null, glState = { scale: [1, 1], step: .004, seed: 0, img: null };
